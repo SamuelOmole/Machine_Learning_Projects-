@@ -1,5 +1,5 @@
 # Breast Cancer Wisconsin Diagnostic Dataset from UCI Machine Learning Repository--------------------
-# the project predicts the canncer malignancy or otherwise based on observations of biopsy features
+# the project predicts the cancer malignancy or otherwise based on observations of biopsy features
 # features correspond to properties of cell nuclei, such as size, shape and regularity. 
 
 options(digits = 3)
