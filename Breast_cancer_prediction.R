@@ -4,7 +4,6 @@
 
 options(digits = 3)
 # load required libraries
-library(matrixStats)
 library(tidyverse)
 library(caret)
 library(dslabs)
