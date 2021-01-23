@@ -1,0 +1,122 @@
+---
+title: "Weight Lifting Prediction"
+author: "Samuel Omole"
+date: "22/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project background
+
+People regularly quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of six participants to predict how well a weight lifting exercise was performed. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available here http://groupware.les.inf.puc-rio.br/har under the section on the Weight Lifting Exercise Dataset. 
+
+## Load required libraries
+The main libraries used in this project include tidyverse, caret and corrplot. The caret and tidyverse packages are very useful in this case as other libraries are embedded within them. 
+```{r libraries, include = FALSE}
+library(tidyverse)
+library(caret)
+library(corrplot)
+```
+## Reading the files
+The validation data will be set aside and will basically serve as an hold-out sample which will be used
+to determine the accuracies of the predictive models used in this project. Meanwhile, the train_set observations will be split into the actual training and test sets. 
+```{r files}
+train_set <- read.csv("pml-training.csv")
+validation <- read.csv("pml-testing.csv")
+```
+## Partitioning the train_set data
+In this section, classe is the response variable which is to be predicted. The data is split so that 70% of data is used for training. The split results in the training and testing data as the shown below.  
+```{r partition}
+y <- train_set$classe
+test_index <- createDataPartition(y, times = 1, p = 0.7, list = FALSE)
+training <- train_set[test_index, ]
+testing <- train_set[-test_index, ]
+```
+## Data preprocessing
+This stage involves observing and making valuable plots to gain insight into the nature of the predictor variables. The str function shows there are 13737 observations with 160 columns in the training data while the test data has 5885 observations but the same number of columns as is expected. The function also shows there are a lot of NAs which are not useful for prediction purposes. Based on this, columns which are predominantly NAs will be removed as part of the preprocessing stage. Usually, predictors with weak variability are removed from teh data as they may cause the fit to be unstable. The nearZeroVar function helps perform this function in R by flagging problematic columns. 
+```{r str, include = FALSE}
+str(training)
+str(testing)
+```
+
+```{r nzv}
+nzv <- nearZeroVar(training)
+training <- training[, -nzv]
+testing <- testing[, -nzv]
+```
+Performing the above operation reduces the number of columns in the training set to 107 but with the same number of observations. Similarly, effect is observed on the testing set. Next, columns which are almost entirely NAs were removed using the code chunk below.
+```{r NAs}
+isna <- sapply(training, function(x) mean(is.na(x)))
+```
+The table shows the proportion of NAs in the predictors. This shows that 48 out of 107 predictors have NA proportions greater than 97%. The remaining 59 columns do not have any missing values and these were retained.
+```{r}
+table(isna)
+```
+Applying isna to the training and test data is done below. Doing this now retains 59 columns for both the training and testing data. 
+```{r}
+training <- training[, isna == 0]
+testing  <- testing[, isna == 0]
+```
+The structure of the data also shows that the first 5 columns are mainly identification purposes and bear no significance to the response. These are columns are removed using the chunk below.
+```{r}
+training <- training[,-c(1:5)]
+testing <- testing[,-c(1:5)]
+```
+Finally, checking for highly correlated predictors, it can be seen that there aren't too many highly correlated predictors. This means further analyses, like the principal component analysis, are not required. The code is written below. 
+```{r fig.cap="Plot of correlation between predictors"}
+training_cor <-  cor(training[,-54]) # removing the classe column
+corrplot(training_cor, method = "color", type = "lower", order = "hclust",
+         tl.col = "black", tl.srt = 45, tl.cex = 0.65)
+```
+
+## Prediction methods
+Four different models were used for prediction. In addition, the models are combined to check for improvemens in prediction accuracy. The subsections below show how the models were trained using the train function in the caret package.
+
+### Using decision tree
+```{r rpart}
+training$classe <- factor(training$classe)
+testing$classe <- factor(testing$classe)
+train_rpart <- train(classe ~ ., method = "rpart", 
+                     tuneGrid = data.frame(cp = seq(0, 0.05, len = 25)), data = training)
+pred <- predict(train_rpart, testing)
+confusionMatrix(pred, testing$classe)
+```
+### Using random forest
+```{r rf}
+control <- trainControl(method = "cv", number = 10, p = .9) # 10-fold cross-validation with 90% of the data
+train_rf <- train(classe ~ ., method = "rf", data = training, trControl = control)
+pred1 <- predict(train_rf, testing)
+confusionMatrix(pred1, testing$classe)
+```
+### Using knn
+```{r knn}
+train_knn <- train(classe ~ ., method = "knn", data = training)
+pred2 <- predict(train_knn, testing)
+confusionMatrix(pred2, testing$classe)
+```
+### Ensembling
+Here, the models were combined using the test data. The accuracy of the resulting fit can, therefore, not be checked using the test data. 
+```{r ens}
+ensemble_df <- data.frame(pred = pred, pred1 = pred1, pred2 = pred2, classe = testing$classe)
+ensemble_fit <- train(classe ~ ., data = ensemble_df, method = "rf") # using random forest for ensembling 
+```
+## Assessing the predictive capability
+The accuracies of the fits created so far were tested on the validation set using the code chunk below.
+```{r prediction}
+predv <- predict(train_rpart, validation) # using the decision tree
+predv1 <- predict(train_rf, validation) # using random forest
+predv2 <- predict(train_knn, validation) # using knn
+ens_df <- data.frame(pred = predv, pred1 = predv1, pred2 = predv2) # creating a dataframe of predictions  
+ensemble_pred <- predict(ensemble_fit, ens_df) # applying the ensemble_fit
+```
+Already the random forest produced the highest accuracy was shown already. It is plausible to, therefore, use this model to predict the response of the validation set. While comparing the predictions between model fits showed that the random forest is identical to the ensembling prediction. 
+```{r}
+mean(predv1==ensemble_pred) # equals 1 
+```
+Finally, the **random forest** prediction, predv1, was used and the output is shown below.
+```{r}
+predv1
+```
