@@ -7,7 +7,6 @@
 library(tidyverse)
 library(caret)
 library(corrplot)
-library(gbm)
 train_set <- read.csv("pml-training.csv") # original training data 
 validation <- read.csv("pml-testing.csv") # original test data which serves as an hold-out sample on which the 
                                         # accuracy of the prediction model will be based
@@ -53,7 +52,8 @@ testing <- testing[,-c(1:5)]
 
 # checking for highly correlated predictors, we see there aren't too many highly correlated predictors 
 training_cor <-  cor(training[,-54]) # removing the classe column
-corrplot(training_cor, method = "color", type = "lower", order = "FPC", t1.cex = 0.5, t1.col = "red")
+corrplot(training_cor, method = "color", type = "lower", order = "hclust",
+         tl.col = "black", tl.srt = 45, tl.cex = 0.65)
 
 
 # Prediction methods
@@ -83,23 +83,16 @@ train_knn <- train(classe ~ ., method = "knn", data = training)
 pred2 <- predict(train_knn, testing)
 confusionMatrix(pred2, testing$classe) # 0.915 accuracy
 
-# using glm
-train_glm <- train(classe ~ ., method = "glm", data = training)
-pred3 <- predict(train_glm, testing)
-confusionMatrix(pred3, testing$classe) # 0.913 accuracy
-
 # Ensembling using a combination of the different methods
-ensemble_df <- data.frame(pred = pred, pred1 = pred1, pred2 = pred2,
-                          pred3 = pred3, classe = testing$classe)
+ensemble_df <- data.frame(pred = pred, pred1 = pred1, pred2 = pred2, classe = testing$classe)
 ensemble_fit <- train(classe ~ ., data = ensemble_df, method = "rf") # the accuracy of the fit will be checked 
                                                                       # using the held out data
 # Applying each of the fitted model to the held-out sample with 20 observations
 predv <- predict(train_rpart, validation) # using the decision tree
 predv1 <- predict(train_rf, validation) # using random forest
 predv2 <- predict(train_knn, validation) # using knn
-predv3 <- predict(train_glm, validation) # using glm 
 
-ens_df <- data.frame(pred = predv, pred1 = predv1, pred2 = predv2, pred3 = predv3)
+ens_df <- data.frame(pred = predv, pred1 = predv1, pred2 = predv2)
 ensemble_pred <- predict(ensemble_fit, ens_df) # ensemble prediction using a combination of the individual models
 
 # it turns out that the ensembled prediction gives identical prediction of the validation set as the
