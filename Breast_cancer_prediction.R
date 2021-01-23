@@ -88,6 +88,6 @@ mean(pred2==validation_set$y) # 0.911
 mean(pred3==validation_set$y) # 0.946
 mean(combined_pred==validation_set$y) # 0.946
 
-# the random forest and the ensembled prediction have the highest accuracies when testing on held-out sample
+# the random forest and the ensembled predictions have the highest accuracies when testing on the held-out sample
 
 
